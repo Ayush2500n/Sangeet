@@ -1,95 +1,147 @@
-package com.example.sangeet.repositry
+package com.example.sangeet.repository
 
-import android.net.Uri
 import android.util.Log
 import com.example.sangeet.dataClasses.Song
+import com.google.android.gms.tasks.Task
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import org.jaudiotagger.audio.AudioFileIO
-import org.jaudiotagger.tag.FieldKey
-import org.jaudiotagger.tag.datatype.Artwork
-import java.io.File
 import javax.inject.Inject
+import com.google.firebase.firestore.FieldPath
 
-class repo @Inject constructor(val firebaseStorage: FirebaseStorage, val db: FirebaseFirestore) {
+
+class repo @Inject constructor(
+    private val firebaseStorage: FirebaseStorage,
+    private val db: FirebaseFirestore
+) {
     private val storageRef = firebaseStorage.reference
+
     suspend fun getSongs() {
-        val songsRef = storageRef.child("songs")
-        val listItems = withContext(Dispatchers.IO){
-            songsRef.listAll().await()
-        }
-        for (items in listItems.items){
-            val songName = items.name
-            val songUrl = items.downloadUrl.await().toString()
-            val localFile = withContext(Dispatchers.IO) {
-                File.createTempFile(songName,".mp3")
-            }
-            try {
-                try {
-                    items.getFile(localFile).await()
-                } catch (e: Exception) {
-                    Log.d("Download error", e.message.toString())
+        val genres = listOf("Bollywood", "English", "Punjabi")
+
+        withContext(Dispatchers.IO) {
+            for (genre in genres) {
+                val genreRef = storageRef.child(genre)
+                val subgenres = genreRef.listAll().await().prefixes
+
+                for (subgenre in subgenres) {
+                    val songFolder = subgenre.child("audio")
+                    val coverArtFolder = subgenre.child("cover")
+
+                    val songFiles = songFolder.listAll().await().items
+                    val coverArtFiles = coverArtFolder.listAll().await().items
+
+                    // Creating a map of cover art files with the cleaned-up names
+                    val coverArtMap = coverArtFiles.associateBy { cleanFileName(it.name) }
+
+                    for (songRef in songFiles) {
+                        // Extract the base name of the song file (without extension)
+                        val rawSongName = songRef.name.substringBeforeLast('.')
+                        val cleanedSongName = cleanFileName(rawSongName)
+
+                        // Log the file name being processed
+                        Log.d("Processing Song", "Processing song: $cleanedSongName")
+
+                        // Attempt to find a matching cover art file
+                        val coverArtUrl = try {
+                            val coverArtRef = coverArtMap[cleanedSongName]
+                            coverArtRef?.let {
+                                withContext(Dispatchers.IO) {
+                                    it.downloadUrl.await().toString()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("Cover Art Error", "Cover art not found for: $cleanedSongName")
+                            // No matching cover art found, set to null
+                            null
+                        }
+
+                        val songUrl = try {
+                            songRef.downloadUrl.await().toString()
+                        } catch (e: Exception) {
+                            Log.e("Song URL Error", "Failed to get song URL for: $cleanedSongName")
+                            // Skip to next if song URL cannot be fetched
+                            continue
+                        }
+
+                        if (!checkIfSongExists(cleanedSongName)) {
+                            val song = Song(
+                                trackName = cleanedSongName,
+                                genre = genre,
+                                subGenre = subgenre.name,
+                                audioUrl = songUrl,
+                                imageUrl = coverArtUrl
+                            )
+                            Log.d("Song", "${song.subGenre} ${song.genre.toString()}, ${song.trackName}, ${song.subGenre}, ${song.audioUrl}, ${song.imageUrl}")
+                            saveSong(song)
+                        }
+                    }
                 }
-                val meta = AudioFileIO.read(localFile)
-                val artistName = meta.tag.getFirst(FieldKey.ARTIST).split(",")
-                val albumName = meta.tag.getFirst(FieldKey.ALBUM)
-                val genre = meta.tag.getFirst(FieldKey.GENRE)
-                val language = meta.tag.getFirst(FieldKey.LANGUAGE)
-                val cover = meta.tag.firstArtwork
-                val imageUrl = getCover(cover)
-                Log.d("Download success", "$songName, $artistName, $albumName, $genre, $language, $cover")
-
-                val song = Song(songName, artistName, albumName, genre, subGenre = null, language, songUrl,imageUrl)
-                saveSongs(song)
-            } catch (e: Exception) {
-                Log.d("Some error", e.message.toString())
-            } finally {
-                localFile.delete()
+            }
+        }
+    }
+    suspend fun getAllData(): DocumentSnapshot? {
+        val data = db.collection("songs").document("allSongs").get().addOnSuccessListener {
+            Log.d("Data", it.data.toString())
+        }
+        return data.await()
+    }
+    private fun cleanFileName(fileName: String): String {
+        val specialCharacters = listOf('(', ')', '|', '.')
+        val otherSpecialCharacters = listOf(':', "#")
+        var cleanedName = fileName
+        for (char in otherSpecialCharacters) {
+            if (cleanedName.contains(char.toString())) {
+                cleanedName = cleanedName.substringAfter(char.toString()).trim()
+            }
+        }
+        for (char in specialCharacters) {
+            if (cleanedName.contains(char.toString())) {
+                cleanedName = cleanedName.substringBefore(char.toString())
             }
         }
 
+
+        return cleanedName.trim()
     }
-    fun saveSongs(song: Song) {
+
+    private suspend fun checkIfSongExists(songName: String): Boolean {
+        Log.d("Check song exists", "Checking if song exists: $songName")
+        return try {
+            val docSnapshot = db.collection("songs").document("allSongs")
+                .get().await()
+
+            docSnapshot.exists() && docSnapshot.contains(songName)
+        } catch (e: Exception) {
+            Log.e("Check song exists error", e.message.toString())
+            false
+        }
+    }
+
+    private fun saveSong(song: Song) {
         val songMap = mapOf(
             "songName" to song.trackName,
-            "artistName" to song.artistName,
-            "albumName" to song.albumName,
             "genre" to song.genre,
-            "language" to song.language,
+            "subgenre" to song.subGenre,
             "songUrl" to song.audioUrl,
             "imageUrl" to song.imageUrl
         )
+
         try {
-            db.collection("songs").document("allSongs").set(songMap)
+            // Use FieldPath.of() to handle special characters in field names
+            val songRef = db.collection("songs").document("allSongs")
+            songRef.update(FieldPath.of(song.trackName), songMap)
                 .addOnSuccessListener {
                     Log.d("Save success", "Song saved: ${song.trackName}")
                 }
-
-
+                .addOnFailureListener {
+                    Log.e("Save failure", it.message.toString())
+                }
         } catch (e: Exception) {
-            Log.d("Save error", e.message.toString())
+            Log.e("Save error", e.message.toString())
         }
-    }
-    suspend fun getCover(cover: Artwork): String {
-        var downloadUrl = ""
-        val coverFile = withContext(Dispatchers.IO) {
-            File.createTempFile("cover", ".jpg")
-        }
-        coverFile.writeBytes(cover.binaryData)
-        val coverUri = Uri.fromFile(coverFile)
-        try {
-            val imageRef = storageRef.child("covers/${coverFile.name}")
-            val uploadTask = imageRef.putFile(coverUri)
-            downloadUrl = uploadTask.await().storage.downloadUrl.await().toString()
-            Log.d("Download success", downloadUrl)
-        }catch (e:Exception){
-            Log.d("Download error", e.message.toString())
-        }finally {
-            coverFile.delete()
-        }
-        return downloadUrl
     }
 }

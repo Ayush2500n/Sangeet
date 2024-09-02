@@ -1,7 +1,8 @@
 package com.example.sangeet.di
 
 import android.content.Context
-import com.example.sangeet.repositry.repo
+import com.example.sangeet.repository.repo
+import com.example.sangeet.viewModels.viewModel
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -42,4 +43,5 @@ object Firebase {
     fun provideRepo(firebaseStorage: FirebaseStorage, db: FirebaseFirestore): repo {
         return repo(firebaseStorage, db)
     }
+
 }

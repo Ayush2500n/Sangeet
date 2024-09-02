@@ -1,9 +1,13 @@
+import org.gradle.internal.impldep.bsh.commands.dir
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     id("kotlin-kapt")
     id("com.google.dagger.hilt.android")
     id("com.google.gms.google-services")
+    id("dagger.hilt.android.plugin") // Add this line
+
 }
 
 android {
@@ -21,6 +25,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        ndk {
+            version = "23.2.8568313"
+        }
     }
 
     buildTypes {
@@ -32,6 +39,11 @@ android {
             )
         }
     }
+//    externalNativeBuild {
+//        cmake {
+//            path = File("src/main/cpp/CMakeLists.txt")
+//        }
+//    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -75,12 +87,17 @@ dependencies {
     implementation(libs.hilt.android)
     kapt(libs.hilt.android.compiler)
 // https://mvnrepository.com/artifact/androidx.hilt/hilt-navigation-compose
-    runtimeOnly(libs.androidx.hilt.navigation.compose)
+//    runtimeOnly(libs.androidx.hilt.navigation.compose)
+
+    kapt(libs.androidx.hilt.compiler)
+//    implementation(libs.androidx.hilt.navigation.fragment)
+    implementation(libs.androidx.hilt.navigation.compose.v100)
+    implementation(libs.koin.androidx.viewmodel)
+    implementation(libs.coil.compose)
+
 
 
 // https://mvnrepository.com/artifact/org/jaudiotagger
-    implementation(libs.jaudiotagger)
-
     // Import the BoM for the Firebase platform
     implementation(platform(libs.firebase.bom))
 
@@ -91,6 +108,14 @@ dependencies {
     // Add the dependency for the Cloud Storage library
     // When using the BoM, you don't specify versions in Firebase library dependencies
     implementation(libs.firebase.storage)
+
+    implementation (libs.jvm)
+
+//    implementation (libs.ffmpeg.kit.full.v4511)
+//    implementation (libs.arthenica.ffmpeg.kit.full.v4511)
+    implementation (libs.exoplayer.core)
+    implementation (libs.exoplayer.ui)
+
 
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 }
