@@ -6,21 +6,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
-import androidx.core.net.toUri
-import com.example.sangeet.repositry.repo
+import com.example.sangeet.repository.repo
+import com.example.sangeet.screens.HomeScreen
 import com.example.sangeet.ui.theme.SangeetTheme
-import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.ktx.storage
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import org.jaudiotagger.audio.AudioFileIO
-import org.jaudiotagger.tag.FieldKey
-import java.io.File
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -32,6 +24,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SangeetTheme {
+                HomeScreen()
                 LaunchedEffect(key1 = null) {
                     authUser()
                     repo.getSongs()
@@ -53,5 +46,5 @@ class MainActivity : ComponentActivity() {
             Log.d("Anonymous sign in ", "failed ${e.message}")
         }
     }
-
 }
+

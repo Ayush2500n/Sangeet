@@ -8,6 +8,13 @@ pluginManagement {
             }
         }
         mavenCentral()
+        maven {
+            name = "TarsosDSP repository"
+            url = uri("https://mvn.0110.be/releases")
+        }
+        maven {
+            url  = uri("https://ffmpeg.org/releases/")
+        }
         gradlePluginPortal()
     }
 }
@@ -16,6 +23,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            name = "TarsosDSP repository"
+            url = uri("https://mvn.0110.be/releases")
+        }
+        maven {
+            url  = uri("https://ffmpeg.org/releases/")
+        }
     }
 }
 
