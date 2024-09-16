@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
@@ -41,7 +42,7 @@ import com.example.sangeet.dataClasses.Moods
 @Preview(showSystemUi = true)
 @Composable
 fun HomeScreenPreview(){
-    Box(modifier = Modifier.background(brush = Brush.verticalGradient(listOf(Color(0xFF154360), Color.Black), startY = 0.1f, endY = 500f))) {
+    Box(modifier = Modifier.background(brush = Brush.verticalGradient(listOf(Color(0xFF154360), Color.Black), startY = 0.1f, endY = 500f)).fillMaxSize().statusBarsPadding()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(
                 modifier = Modifier

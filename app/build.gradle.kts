@@ -7,6 +7,8 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.gms.google-services")
     id("dagger.hilt.android.plugin") // Add this line
+    kotlin("plugin.serialization") version "2.0.20"
+    id("kotlin-parcelize")
 
 }
 
@@ -76,6 +78,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.firebase.database.ktx)
+    implementation(libs.androidx.runtime.livedata)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -91,10 +94,11 @@ dependencies {
 
     kapt(libs.androidx.hilt.compiler)
 //    implementation(libs.androidx.hilt.navigation.fragment)
-    implementation(libs.androidx.hilt.navigation.compose.v100)
+    implementation(libs.androidx.hilt.navigation.compose.v110alpha01) // Or later
     implementation(libs.koin.androidx.viewmodel)
     implementation(libs.coil.compose)
 
+    implementation(libs.kotlinx.serialization.json)
 
 
 // https://mvnrepository.com/artifact/org/jaudiotagger
