@@ -6,5 +6,7 @@ data class Song(
     val album: String? = "Unknown Album",
     val language: String?= "Unknown language",
     val audioUrl: String,
-    val coverUrl: ByteArray?
+    val coverUrl: ByteArray?,
+    val subgenre: String?= "Unknown subgenre",
+    val artists: String? = "Unknown Artist"
 )

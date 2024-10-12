@@ -195,13 +195,14 @@ fun SongCard(song: Song, isNotLoading: Boolean) {
             Log.d("Metadata extraction", song.audioUrl)
             try {
                 metadataRetriever.setDataSource(song.audioUrl)
-                val title = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                val album = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
                 val cover = metadataRetriever.embeddedPicture
                 metadata = song.copy(
-                    name = title,
-                    album = album,
-                    coverUrl = cover
+                    name = song.name,
+                    album = song.album,
+                    coverUrl = cover,
+                    genre = song.genre,
+                    subgenre = song.subgenre,
+                    artists = song.artists
                 )
             } catch (e: Exception) {
                 e.message?.let { Log.d("Extraction", it) }

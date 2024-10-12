@@ -33,8 +33,8 @@ class viewModel @Inject constructor(val repo: repo, val db: FirebaseFirestore): 
             }
         return songsList
     }
-    fun getMoods(): List<Moods> {
-        val uniqueMoods = repo.collectionOfMoods
+    suspend fun getMoods(): List<Moods> {
+        val uniqueMoods = repo.determineMoodsList()
         return uniqueMoods.map { mood ->
             val formattedMood = mood.capitalizeFirstLetter() // Capitalize the first letter
             val resourceId = getDrawableResourceId(mood)

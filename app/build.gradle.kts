@@ -79,6 +79,8 @@ dependencies {
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.firebase.database.ktx)
     implementation(libs.androidx.runtime.livedata)
+    implementation(libs.play.services.auth)
+    implementation(libs.androidx.lifecycle.runtime.compose.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -119,6 +121,10 @@ dependencies {
 //    implementation (libs.arthenica.ffmpeg.kit.full.v4511)
     implementation (libs.exoplayer.core)
     implementation (libs.exoplayer.ui)
+
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.datastore)
 
 
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))

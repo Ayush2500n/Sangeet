@@ -1,17 +1,15 @@
 package com.example.sangeet.repository
 
 import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.example.sangeet.dataClasses.Song
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Source
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import javax.inject.Inject
 
 
@@ -20,25 +18,70 @@ class repo @Inject constructor(
     private val db: FirebaseFirestore
 ) {
     private val storageRef = firebaseStorage.reference
-    val collectionOfMoods =
-        listOf("feel good", "party", "rap", "retro", "rock", "romance", "sad", "travel", "workout")
+    var collectionOfMoods =
+        mutableListOf("feel good", "party", "rap", "retro", "rock", "romance", "sad", "travel", "workout")
     private val languages = listOf("english", "hindi", "punjabi")
-    suspend fun getSongsByMood(mood: String): MutableList<Song> {
-        val listOfSongs = mutableListOf<Song>()
-        for (language in languages) {
-            withContext(Dispatchers.IO) {
-                val songs = db.collection(mood).document(language).get().await()
-                Log.d("Songs", songs.toObject(Song::class.java).toString())
-                songs.toObject(Song::class.java)?.let { listOfSongs.add(it) }
-            }
-        }
-        return listOfSongs
-    }
-
     private val _songsList = MutableLiveData<List<Song>>()
     val songsList: LiveData<List<Song>> = _songsList
     private var hasFetched = false
-    suspend fun getAllSongs(limit: Int = 4, forceRefresh: Boolean = false): LiveData<List<Song>> {
+    suspend fun determineMoodsList(): MutableList<String> {
+        val tempList = mutableSetOf<String>()
+        for (collection in collectionOfMoods){
+            for (language in languages){
+                try {
+                    val documentSnapshot = db.collection(collection).document(language).get().await()
+                    if (documentSnapshot.exists()){
+                        tempList.add(collection)
+                    }
+                }catch (e:Exception){
+                    Log.d("determine Moods", "Error occurred in repo ${e.message}")
+                }
+            }
+        }
+        collectionOfMoods = tempList.toMutableList()
+        Log.d("determine Moods", "Moods available $collectionOfMoods")
+        return collectionOfMoods
+    }
+    suspend fun getSongsByMood(mood: String, forceRefresh: Boolean = false): LiveData<List<Song>> {
+        val listOfSongs = mutableListOf<Song>()
+        if (hasFetched && !forceRefresh) {
+            return songsList
+        }
+            withContext(Dispatchers.IO) {
+                for (language in languages){
+                    try {
+                        val songs = db.collection(mood.lowercase(Locale.ROOT)).document(language).get().await()
+                        if (songs.exists()){
+                            val songsData = songs.data?.let { shuffleSongs(it, 50) }
+                            if (songsData != null) {
+                                songsData.forEach{
+                                    val songMap = it.value as Map<*, *>
+                                    val name = songMap["name"] as String
+                                    val genre = songMap["genre"] as String
+                                    val lang = songMap["language"] as String
+                                    val audioUrl = songMap["audioUrl"] as String
+                                    val song = Song(name,genre,null,lang,audioUrl,null)
+                                    listOfSongs.add(song)
+                                }
+                            }
+                            Log.d("MoodSelect","Song fetched in repo $listOfSongs")
+                        }
+                        else{
+                            Log.d("MoodSelect","No songs found in repo for $language")
+                        }
+                    }catch (e:Exception){
+                        Log.d("MoodSelect","Some error occured ${e.message}")
+                    }
+                }
+            }
+        _songsList.value = listOfSongs
+        Log.d("Mood Select", "Final list as of repo ${songsList.value}")
+        hasFetched = true
+        return songsList
+    }
+
+
+    suspend fun getAllSongs(forceRefresh: Boolean = false): LiveData<List<Song>> {
         val tempList = mutableListOf<Song>()
         if (hasFetched && !forceRefresh) {
             return songsList
@@ -52,17 +95,17 @@ class repo @Inject constructor(
 
                         if (documentSnapshot.exists()) {
                             val songsData = documentSnapshot.data
-                            val limitedSongs =
-                                songsData?.entries?.toList()?.shuffled()?.take(limit)
+                            val limitedSongs = songsData?.let { shuffleSongs(it, 4) }
+
 
                             limitedSongs?.forEach { entry ->
                                 val songMap = entry.value as? Map<*, *>
                                 if (songMap != null) {
                                     val name = songMap["name"] as? String ?: return@forEach
                                     val genre = songMap["genre"] as? String
-                                    val language = songMap["language"] as? String ?: return@forEach
+                                    val lang = songMap["language"] as? String ?: return@forEach
                                     val audioUrl = songMap["audioUrl"] as? String ?: return@forEach
-                                    val song = Song(name, genre, null, language, audioUrl, null)
+                                    val song = Song(name, genre, null, lang, audioUrl, null)
                                     tempList.add(song)
                                 }
                                 Log.d("repo limited songs", "$tempList")
@@ -89,6 +132,7 @@ class repo @Inject constructor(
         hasFetched = true
         return songsList
     }
-
-
+    fun shuffleSongs(songsData:MutableMap<String, Any>,limit: Int): List<MutableMap.MutableEntry<String, Any>> {
+        return songsData.entries.toList().shuffled().take(limit)
+    }
 }

@@ -13,7 +13,20 @@
           "package_name": "com.example.sangeet"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "697836653467-jf5m059pr2iatfr3fcucn5l7c236t9qg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sangeet",
+            "certificate_hash": "7ce9cbb824bee8837364227f717b16d3ed341a5b"
+          }
+        },
+        {
+          "client_id": "697836653467-47s5edhm54mf0j5lvm67bv2ujgecbjaa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCbufTXDJA54jAxxgy-2UeYMRmwZui7x9c"
@@ -21,7 +34,49 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "697836653467-47s5edhm54mf0j5lvm67bv2ujgecbjaa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:697836653467:android:e6e916f1fdccc0c2eb6f3e",
+        "android_client_info": {
+          "package_name": "com.example.sangeet_backend"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "697836653467-9317s1fciuuar99m06l842i17j649op2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sangeet_backend",
+            "certificate_hash": "7ce9cbb824bee8837364227f717b16d3ed341a5b"
+          }
+        },
+        {
+          "client_id": "697836653467-47s5edhm54mf0j5lvm67bv2ujgecbjaa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbufTXDJA54jAxxgy-2UeYMRmwZui7x9c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "697836653467-47s5edhm54mf0j5lvm67bv2ujgecbjaa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
