@@ -36,7 +36,6 @@ import com.example.sangeet.R
 import com.example.sangeet.dataClasses.SignInState
 import com.google.firebase.auth.FirebaseUser
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FirstPage(
     state: SignInState,

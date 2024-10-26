@@ -76,7 +76,10 @@ class GoogleAuthClient(
                     UserData(
                         userId = uid,
                         username = displayName,
-                        profilePictureUrl = photoUrl?.toString()
+                        profilePictureUrl = photoUrl?.toString(),
+                        preferences = null,
+                        likedSongs = null,
+                        playlist = null
                     )
                 })
 
@@ -103,7 +106,10 @@ class GoogleAuthClient(
         UserData(
             userId = uid,
             username = displayName,
-            profilePictureUrl = photoUrl?.toString()
+            profilePictureUrl = photoUrl?.toString(),
+            preferences = null,
+            likedSongs = null,
+            playlist = null
         )
         Log.d("GoogleSignIn", "${displayName}, $uid")
     }

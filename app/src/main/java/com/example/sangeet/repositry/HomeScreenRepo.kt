@@ -3,6 +3,7 @@ package com.example.sangeet.repository
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.example.sangeet.dataClasses.Artists
 import com.example.sangeet.dataClasses.Song
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -13,7 +14,7 @@ import java.util.Locale
 import javax.inject.Inject
 
 
-class repo @Inject constructor(
+class HomeScreenRepo @Inject constructor(
     private val firebaseStorage: FirebaseStorage,
     private val db: FirebaseFirestore
 ) {
@@ -79,6 +80,62 @@ class repo @Inject constructor(
         hasFetched = true
         return songsList
     }
+    suspend fun getSongsByUserPref(artists: List<Artists>,forceRefresh: Boolean = false): LiveData<List<Song>> {
+        val artistNames = artists.map { it.artistName }
+        val allSongs = mutableListOf<Song>()
+
+        if (hasFetched && !forceRefresh) {
+            return songsList
+        }
+
+        withContext(Dispatchers.IO) {
+            for (mood in collectionOfMoods) {
+                val genreCollection = db.collection(mood)
+                val languageSnapshots = genreCollection.get().await()
+
+                for (languageDocument in languageSnapshots.documents) {
+                    val songsData = languageDocument.data
+
+                    val tempSongList = mutableListOf<Song>()
+
+                    songsData?.forEach { (songName, songMap) ->
+                        val songDetails = songMap as? Map<*, *>
+
+                        // Retrieve contributing artists and filter based on preferred artists
+                        val contributingArtists = songDetails?.get("albumArtist") as? String
+                        if (contributingArtists != null) {
+                            val songArtists = contributingArtists.split(", ").map { it.trim() }
+                            if (songArtists.any { artistNames.contains(it) }) {
+                                val song = Song(
+                                    name = songDetails["name"] as? String ?: "",
+                                    artists = contributingArtists,
+                                    genre = songDetails["genre"] as? String,
+                                    subgenre = songDetails["subgenre"] as? String,
+                                    language = songDetails["language"] as? String,
+                                    audioUrl = songDetails["audioUrl"] as? String ?: "",
+                                    album = songDetails["album"] as? String,
+                                    coverUrl = songDetails["coverUrl"] as? ByteArray
+                                )
+                                tempSongList.add(song)
+                            }
+                        }
+                    }
+
+                    tempSongList.shuffle()
+                    allSongs.addAll(tempSongList.take(6))
+                }
+            }
+        }
+
+        // Shuffle the final list and take the first 16 songs
+        allSongs.shuffle()
+        _songsList.value = allSongs.take(20)
+        hasFetched = true
+        return songsList
+    }
+
+
+
 
 
     suspend fun getAllSongs(forceRefresh: Boolean = false): LiveData<List<Song>> {

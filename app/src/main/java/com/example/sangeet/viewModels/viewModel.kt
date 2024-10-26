@@ -6,9 +6,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sangeet.R
+import com.example.sangeet.dataClasses.Artists
 import com.example.sangeet.dataClasses.Moods
 import com.example.sangeet.dataClasses.Song
-import com.example.sangeet.repository.repo
+import com.example.sangeet.repository.HomeScreenRepo
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -17,10 +18,10 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
-class viewModel @Inject constructor(val repo: repo, val db: FirebaseFirestore): ViewModel() {
+class viewModel @Inject constructor(val repo: HomeScreenRepo, val db: FirebaseFirestore): ViewModel() {
     private val _songsList = MutableLiveData<List<Song>>()
     val songsList: LiveData<List<Song>> get() = _songsList
-    fun fetchSongs(): LiveData<List<Song>> {
+    fun fetchSongs() {
             try {
                 viewModelScope.launch {
                     withContext(Dispatchers.Main){
@@ -31,7 +32,6 @@ class viewModel @Inject constructor(val repo: repo, val db: FirebaseFirestore): 
             } catch (e: Exception) {
                 Log.e("ViewModel Error", "Error fetching songs: ${e.message}")
             }
-        return songsList
     }
     suspend fun getMoods(): List<Moods> {
         val uniqueMoods = repo.determineMoodsList()
@@ -39,6 +39,14 @@ class viewModel @Inject constructor(val repo: repo, val db: FirebaseFirestore): 
             val formattedMood = mood.capitalizeFirstLetter() // Capitalize the first letter
             val resourceId = getDrawableResourceId(mood)
             Moods(formattedMood, resourceId)
+        }
+    }
+
+    fun fetchSongsByUserPref(artists: List<Artists>) {
+        viewModelScope.launch {
+            // Fetch the songs using the suspend function
+            val songs = repo.getSongsByUserPref(artists)
+            _songsList.value = songs.value
         }
     }
 

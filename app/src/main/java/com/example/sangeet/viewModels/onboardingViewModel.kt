@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.sangeet.dataClasses.Artists
 import com.example.sangeet.repositry.onboarding
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -16,10 +15,14 @@ import javax.inject.Inject
 class onboardingViewModel @Inject constructor(val repo: onboarding): ViewModel()  {
     private var _artistsList = MutableLiveData<List<Artists>>()
     val artistsList: LiveData<List<Artists>> get() = _artistsList
+    private var _isLoading = MutableLiveData(true)
+    val isLoading: LiveData<Boolean> get() = _isLoading
     fun getArtists(): LiveData<List<Artists>> {
         try {
             viewModelScope.launch {
+                _isLoading.value = true
                 _artistsList.value = repo.getArtists().value
+                _isLoading.value = false
             }
             Log.d("Artists in ViewModel", "Artists fetched: ${artistsList.value}")
         } catch (e: Exception) {

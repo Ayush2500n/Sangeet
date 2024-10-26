@@ -1,5 +1,6 @@
 package com.example.sangeet.screens
 
+import android.content.ServiceConnection
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,12 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -29,15 +26,21 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.sangeet.MainActivity
+import androidx.navigation.NavHostController
 import com.example.sangeet.R
 import com.example.sangeet.dataClasses.Moods
-import com.example.sangeet.dataClasses.Song
+import com.example.sangeet.viewModels.PlayerSharedViewModel
 import com.example.sangeet.viewModels.moodsViewModel
 
 
 @Composable
-fun MoodsSelect(viewModelRef: moodsViewModel, subgenre: Moods?) {
+fun MoodsSelect(
+    viewModelRef: moodsViewModel,
+    subgenre: Moods?,
+    navController: NavHostController,
+    playerSharedViewModel: PlayerSharedViewModel,
+    connection: ServiceConnection
+) {
     if (subgenre == null) {
         Log.e("MoodsSelect", "Received null subgenre")
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -84,7 +87,13 @@ fun MoodsSelect(viewModelRef: moodsViewModel, subgenre: Moods?) {
                 color = Color.White, modifier = Modifier.padding(start = 20.dp)
             )
             Spacer(modifier = Modifier.height(20.dp))
-            SongsRow(songs = songs, isNotLoading = true)
+            SongsRow(
+                songs = songs,
+                isNotLoading = true,
+                navController,
+                playerSharedViewModel,
+                connection
+            )
         }
     }
 }

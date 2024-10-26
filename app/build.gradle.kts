@@ -100,7 +100,7 @@ dependencies {
     implementation(libs.koin.androidx.viewmodel)
     implementation(libs.coil.compose)
 
-    implementation(libs.kotlinx.serialization.json)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
 
 
 // https://mvnrepository.com/artifact/org/jaudiotagger
@@ -125,6 +125,10 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.datastore)
+    implementation(libs.lottie.compose)
+
+    implementation(libs.kotlinx.collections.immutable.v035)
+
 
 
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))

@@ -1,9 +1,9 @@
 package com.example.sangeet.di
 
 import android.content.Context
-import com.example.sangeet.repository.repo
+import com.example.sangeet.repository.HomeScreenRepo
+import com.example.sangeet.repositry.Users
 import com.example.sangeet.repositry.onboarding
-import com.example.sangeet.viewModels.viewModel
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -41,8 +41,8 @@ object Firebase {
     }
 
     @Provides
-    fun provideRepo(firebaseStorage: FirebaseStorage, db: FirebaseFirestore): repo {
-        return repo(firebaseStorage, db)
+    fun provideRepo(firebaseStorage: FirebaseStorage, db: FirebaseFirestore): HomeScreenRepo {
+        return HomeScreenRepo(firebaseStorage, db)
     }
 
     @Provides
@@ -50,4 +50,8 @@ object Firebase {
         return onboarding(db, storage)
     }
 
+    @Provides
+    fun provideUserRepo(db: FirebaseFirestore): Users {
+        return Users(db)
+    }
 }

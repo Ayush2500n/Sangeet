@@ -1,9 +1,12 @@
 package com.example.sangeet.dataClasses
 
-import android.net.Uri
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.serialization.Serializable
 
-data class User(
-    val username: String,
-    val photoUrl: String,
-    
+@Serializable
+data class UserPref(
+    val preferredArtists: List<Artists> = emptyList(),
+    val likedSongs: List<Song> = emptyList(),
+    val playlists: List<Song> = emptyList()
 )

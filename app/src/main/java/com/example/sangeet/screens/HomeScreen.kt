@@ -1,12 +1,12 @@
 package com.example.sangeet.screens
 
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.util.Log
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -46,15 +47,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
@@ -62,27 +60,28 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import com.example.sangeet.R
 import com.example.sangeet.dataClasses.Moods
 import com.example.sangeet.dataClasses.Song
+import com.example.sangeet.exoplayer.MusicService
+import com.example.sangeet.modifierExtension.shimmerEffect
+import com.example.sangeet.viewModels.PlayerSharedViewModel
+import com.example.sangeet.viewModels.UserSharedViewModel
 import com.example.sangeet.viewModels.viewModel
-import com.google.api.Context
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.ArrayList
+
 
 
 @Composable
-fun HomeScreen(navController: NavHostController, viewModelRef: viewModel = hiltViewModel()) {
+fun HomeScreen(navController: NavHostController, viewModelRef: viewModel = hiltViewModel(), userSharedViewModel: UserSharedViewModel, playerSharedViewModel: PlayerSharedViewModel, connection: ServiceConnection) {
     Box(
         modifier = Modifier.background(
             brush = Brush.verticalGradient(
@@ -117,34 +116,54 @@ fun HomeScreen(navController: NavHostController, viewModelRef: viewModel = hiltV
                         .fillMaxWidth()
                         .height(10.dp)
                 )
-                SongPreview(viewModelRef)
+                SongPreview(viewModelRef, userSharedViewModel, navController, playerSharedViewModel, connection)
             }
         }
     }
 }
 
 @Composable
-fun SongPreview(viewModelRef: viewModel) {
+fun SongPreview(
+    viewModelRef: viewModel,
+    userSharedViewModel: UserSharedViewModel,
+    navController: NavHostController,
+    playerSharedViewModel: PlayerSharedViewModel,
+    connection: ServiceConnection
+) {
     var isNotLoading by remember { mutableStateOf(false) }
     val songs = remember {
         mutableStateListOf<Song>()
     }
-    val observerdSongs by viewModelRef.fetchSongs().observeAsState(initial = emptyList())
+    val observedSongs by viewModelRef.songsList.observeAsState(initial = emptyList())
+    val userPref by userSharedViewModel.userData.observeAsState()
 
-    LaunchedEffect(key1 = observerdSongs) {
-        if (observerdSongs.isNotEmpty()){
+    LaunchedEffect(key1 = userPref, key2 = observedSongs) {
+        Log.d("SongPreview", "User preferences: ${userPref?.preferences}")
+        if (userPref?.preferences?.isNotEmpty() == true) {
+            Log.d("SongPreview", "Fetching songs by preferences: ${userPref?.preferences}")
+            viewModelRef.fetchSongsByUserPref(userPref?.preferences ?: emptyList())
+        } else {
+            Log.d("SongPreview", "Fetching all songs")
+            viewModelRef.fetchSongs()
+        }
+    }
+
+
+
+    LaunchedEffect(key1 = observedSongs) {
+        if (observedSongs.isNotEmpty()){
             songs.clear()
-            songs.addAll(observerdSongs)
+            songs.addAll(observedSongs)
             isNotLoading = true
         }
         else{
-            songs.addAll(observerdSongs)
+            songs.addAll(observedSongs)
             isNotLoading = true
         }
     }
 
-    if (observerdSongs.isNotEmpty()){
-        Log.d("Observer", "$observerdSongs and $songs")
+    if (observedSongs.isNotEmpty()){
+        Log.d("Observer", "$observedSongs and $songs")
     }else{
         Log.d("Observer", "Empty")
     }
@@ -165,18 +184,32 @@ fun SongPreview(viewModelRef: viewModel) {
     Spacer(modifier = Modifier.height(10.dp))
 
     Box(modifier = Modifier.height(300.dp)) { // Set an appropriate height for your grid
-        SongsRow(songs, isNotLoading)
+        SongsRow(songs, isNotLoading, navController, playerSharedViewModel, connection)
     }
 }
 
 @Composable
-fun SongsRow(songs: List<Song>, isNotLoading: Boolean) {
+fun SongsRow(
+    songs: List<Song>,
+    isNotLoading: Boolean,
+    navController: NavHostController,
+    playerSharedViewModel: PlayerSharedViewModel,
+    connection: ServiceConnection
+) {
     LazyHorizontalGrid(
         rows = GridCells.Fixed(4),
-        modifier = Modifier.wrapContentHeight() // Let it wrap based on its content
+        modifier = Modifier.wrapContentHeight()
     ) {
-        items(songs) {
-            SongCard(song = it, isNotLoading)
+        itemsIndexed(songs) { index, song ->
+            SongCard(
+                song = song,
+                isNotLoading = isNotLoading,
+                navController = navController,
+                playerSharedViewModel = playerSharedViewModel,
+                connection = connection,
+                songs = songs,
+                index = index  // Pass index here
+            )
         }
     }
 }
@@ -184,22 +217,38 @@ fun SongsRow(songs: List<Song>, isNotLoading: Boolean) {
 
 
 @Composable
-fun SongCard(song: Song, isNotLoading: Boolean) {
+fun SongCard(
+    song: Song,
+    isNotLoading: Boolean,
+    navController: NavHostController,
+    playerSharedViewModel: PlayerSharedViewModel,
+    connection: ServiceConnection,
+    songs: List<Song>,
+    index: Int
+) {
     val metadataRetriever = MediaMetadataRetriever()
-    Log.d("Extraction", song.audioUrl)
+    song.audioUrl?.let { Log.d("Extraction", it) }
     var metadata by remember {
         mutableStateOf(song)
     }
+    var bitmapCover by remember {
+        mutableStateOf<Bitmap?>(null)
+    }
+    val context = LocalContext.current
     LaunchedEffect(key1 = metadata.audioUrl) {
         withContext(Dispatchers.IO){
-            Log.d("Metadata extraction", song.audioUrl)
+            song.audioUrl?.let { Log.d("Metadata extraction", it) }
             try {
                 metadataRetriever.setDataSource(song.audioUrl)
                 val cover = metadataRetriever.embeddedPicture
+                if (cover != null) {
+                    // Convert ByteArray to Bitmap
+                    bitmapCover = BitmapFactory.decodeByteArray(cover, 0, cover.size)
+                }
                 metadata = song.copy(
                     name = song.name,
                     album = song.album,
-                    coverUrl = cover,
+                    coverUrl = cover,  // This is still ByteArray, keep it for any other processing
                     genre = song.genre,
                     subgenre = song.subgenre,
                     artists = song.artists
@@ -212,7 +261,21 @@ fun SongCard(song: Song, isNotLoading: Boolean) {
         }
     }
 
-    Row(modifier = Modifier.padding(4.dp), verticalAlignment =
+    val painter = rememberAsyncImagePainter(bitmapCover)
+    Row(modifier = Modifier
+        .padding(4.dp)
+        .clickable {
+            val intent = Intent(navController.context, MusicService::class.java).apply {
+                Log.d("Player", "Sending in information for intent $songs, $metadata")
+                playerSharedViewModel.setPlayingStatus(true)
+                playerSharedViewModel.sendSong(metadata)
+                playerSharedViewModel.sendSongList(songs)
+                playerSharedViewModel.getCurrentIndex(index)
+            }
+            context.startService(intent)
+            context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            navController.navigate("Player")
+        }, verticalAlignment =
     Alignment.CenterVertically) {
         Spacer(
             modifier = Modifier
@@ -226,9 +289,10 @@ fun SongCard(song: Song, isNotLoading: Boolean) {
                 shape = RoundedCornerShape(6.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
+
                 if (metadata.coverUrl != null) {
-                    AsyncImage(
-                        model = metadata.coverUrl,
+                    Image(
+                        painter = painter,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -262,7 +326,6 @@ fun SongCard(song: Song, isNotLoading: Boolean) {
                 }
             }
         } else {
-            // Display shimmer effect directly, no nested LazyHorizontalGrid
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -385,29 +448,7 @@ fun Moods(viewModelRef: viewModel, navController: NavController) {
     }
 }
 
-fun Modifier.shimmerEffect(): Modifier = composed{
-    var size by remember {
-        mutableStateOf(IntSize.Zero)
-    }
-    val transition = rememberInfiniteTransition()
-    val startOffsetX by transition.animateFloat(
-        initialValue = -2* size.width.toFloat(),
-        targetValue = 2* size.width.toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing)
-        )
-    )
-    background(
-        brush = Brush.linearGradient(
-            listOf(Color(0xFF1b4f72),
-                Color(0xFF3498db),
-                Color(0xFF1b4f72)
-            ), start = Offset(x = startOffsetX, y = 0.0f),
-            end = Offset(x = startOffsetX + size.width.toFloat(), y = size.height.toFloat()))
-        ).onGloballyPositioned {
-        size = it.size
-    }
-}
+
 @Composable
 fun SearchArea() {
     Log.d("Search Area", "Search Area called")

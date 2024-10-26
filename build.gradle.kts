@@ -11,4 +11,10 @@ buildscript {
     dependencies {
         classpath(libs.hilt.android.gradle.plugin)
     }
+//    allprojects {
+//        repositories {
+//            maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots/") }
+//        }
+//    }
+
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +43,16 @@ import com.example.sangeet.dataClasses.Moods
 @Preview(showSystemUi = true)
 @Composable
 fun HomeScreenPreview(){
-    Box(modifier = Modifier.background(brush = Brush.verticalGradient(listOf(Color(0xFF154360), Color.Black), startY = 0.1f, endY = 500f)).fillMaxSize().statusBarsPadding()) {
+    Box(modifier = Modifier
+        .background(
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF154360), Color.Black),
+                startY = 0.1f,
+                endY = 500f
+            )
+        )
+        .fillMaxSize()
+        .statusBarsPadding()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(
                 modifier = Modifier
