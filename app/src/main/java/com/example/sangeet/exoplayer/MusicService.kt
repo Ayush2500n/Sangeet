@@ -35,7 +35,7 @@ const val NEXT = "next"
 class MusicService: Service()  {
 
     private val currentTrack = MutableStateFlow<Song?>(null)
-    private var currentTrackIndex = mutableStateOf<Int?>(0)
+    private val currentTrackIndex = MutableStateFlow<Int?>(0)
     private var songsList = MutableStateFlow<List<Song>>(emptyList())
     private val maxDuration = MutableStateFlow(0f)
     private val currentDuration = MutableStateFlow(0f)
@@ -47,7 +47,7 @@ class MusicService: Service()  {
         fun getService() = this@MusicService
         fun setSongsList(songs: List<Song>){
             this@MusicService.songsList.value = emptyList()
-            this@MusicService.songsList.value = songs.toMutableStateList()
+            this@MusicService.songsList.value = songs
         }
         fun currentDuration() = this@MusicService.currentDuration
         fun maxDuration() = this@MusicService.maxDuration
@@ -58,50 +58,43 @@ class MusicService: Service()  {
     override fun onBind(intent: Intent?): IBinder {
         return binder
     }
-    fun updateTrack(
-        selectedSong: Song?,
-        songList: List<Song>?,
-        selectedSongIndex: Int?
-    ) {
+    fun updateTrack(selectedSong: Song?, songList: List<Song?>, selectedSongIndex: Int?) {
         Log.d("Player", "updateTrack called with selectedSong: $selectedSong")
         if (selectedSong != null) {
             currentTrack.value = selectedSong
             currentTrackIndex.value = selectedSongIndex
-            Log.d("Player", "Current Track value based on intent ${currentTrack.value}, $songList")
+            songsList.value = songList.filterNotNull() // Set the songsList if needed
+            playSong(selectedSong) // Start playback for the selected song
         } else {
             Log.e("MusicService", "Selected song or song list is empty")
         }
     }
 
 
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.let {
-            when(it.action){
-                PREV -> {
-                    prev()
-                }
-                PLAY -> {
-                    play()
-                }
-                NEXT -> {
-                    next()
-                }
+            when (it.action) {
+                PREV -> prev()
+                PLAY -> play()
+                NEXT -> next()
                 else -> {
                     scope.launch {
-                        songsList.collectLatest {
-                            if (it.isEmpty()){
-                                Log.e("MusicPlayer", "songsList is empty; delaying playback until songs are loaded")
-                            }else{
+                        songsList.collectLatest { songs ->
+                            if (songs.isNotEmpty()) {
                                 currentTrack.update { songsList.value[currentTrackIndex.value ?: 0] }
-                                currentTrack.value?.let { playSong(it) }
+                                playSong(currentTrack.value ?: return@collectLatest)
+                            } else {
+                                Log.e("MusicPlayer", "songsList is empty; delaying playback")
                             }
                         }
                     }
-                    }
                 }
+            }
         }
         return START_REDELIVER_INTENT
     }
+
 
     fun updateDurations(){
         scope.launch {

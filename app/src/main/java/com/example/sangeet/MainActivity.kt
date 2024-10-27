@@ -2,6 +2,7 @@ package com.example.sangeet
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.IBinder
@@ -62,6 +63,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.ext.scope
 import javax.inject.Inject
 
 val Context.datastore by dataStore("user_settings", UserSettingsSerializer)
@@ -99,39 +101,29 @@ class MainActivity : ComponentActivity() {
                 }
                 val userSharedViewModel: UserSharedViewModel = hiltViewModel()
                 val playerSharedViewModel: PlayerSharedViewModel = hiltViewModel()
-                val connection = object : ServiceConnection{
+
+                val connection = object : ServiceConnection {
                     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
                         service = (binder as MusicService.MusicBinder).getService()
-                        val selectedSong = playerSharedViewModel.currentSong
-                        val selectedSongsList = playerSharedViewModel.currentSongList
-                        val selectedSongIndex = playerSharedViewModel.currentSongIndex
-                        Log.d("Player", "Information received for Intent $selectedSong, $selectedSongsList, $selectedSongIndex")
+
                         lifecycleScope.launch {
-                            if (selectedSongsList != null) {
-                                binder.setSongsList(selectedSongsList)
+
+                            // Collecting playback state from the service
+                            binder.isPlaying().collectLatest { playing ->
+                                playerSharedViewModel.setPlayingStatus(playing)
                             }
-                            service?.updateTrack(selectedSong.value, selectedSongsList, selectedSongIndex.value)
-                        }
-                        lifecycleScope.launch {
-                            binder.isPlaying().collectLatest {
-                                isPlaying.value = it
+
+                            // Collect the track currently playing
+                            binder.currentTrack().collectLatest { track ->
+                                track?.let { currentTrack.value = it }
                             }
-                        }
-                        lifecycleScope.launch {
-                            binder.currentTrack().collectLatest {
-                                if (it != null) {
-                                    currentTrack.value = it
-                                }
+
+                            // Update duration values
+                            binder.currentDuration().collectLatest { duration ->
+                                currentDuration.value = duration
                             }
-                        }
-                        lifecycleScope.launch {
-                            binder.currentDuration().collectLatest {
-                                currentDuration.value = it
-                            }
-                        }
-                        lifecycleScope.launch {
-                            binder.maxDuration().collectLatest {
-                                maxDuration.value = it
+                            binder.maxDuration().collectLatest { max ->
+                                maxDuration.value = max
                             }
                         }
                         isBound = true
@@ -140,7 +132,18 @@ class MainActivity : ComponentActivity() {
                     override fun onServiceDisconnected(name: ComponentName?) {
                         isBound = false
                     }
+                }
 
+                // Bind to the service onStart and unbind onStop
+                bindService(Intent(this, MusicService::class.java), connection, Context.BIND_AUTO_CREATE)
+
+                // Use LaunchedEffect to collect flows continuously
+                LaunchedEffect(key1 = playerSharedViewModel) {
+                    playerSharedViewModel.currentSong.collect { song ->
+                        song?.let {
+                            service?.updateTrack(it, playerSharedViewModel.currentSongList.value, playerSharedViewModel.currentSongIndex.value)
+                        }
+                    }
                 }
 
                 val context = LocalContext.current

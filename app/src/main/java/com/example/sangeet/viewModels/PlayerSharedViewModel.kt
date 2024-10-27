@@ -10,29 +10,57 @@ import androidx.lifecycle.ViewModel
 import com.example.sangeet.dataClasses.Song
 import com.example.sangeet.repositry.Users
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayerSharedViewModel @Inject constructor(private val userRepo: Users) : ViewModel() {
-    private val _currentSong = mutableStateOf<Song?>(null)
-    val currentSong: State<Song?> get() = _currentSong
-    private val _currentSongList = mutableStateListOf<Song>()
-    val currentSongList: MutableList<Song> get() = _currentSongList
-    private val _currentSongIndex = mutableStateOf<Int?>(null)
-    val currentSongIndex: MutableState<Int?> get() = _currentSongIndex
-    private val _isPlaying = mutableStateOf(false)
-    var playStatus: MutableState<Boolean> =  _isPlaying
 
-    fun sendSong(song: Song){
+    private val _currentSong = MutableStateFlow<Song?>(null)
+    val currentSong: StateFlow<Song?> = _currentSong
+
+    private val _currentSongList = MutableStateFlow<List<Song>>(emptyList())
+    val currentSongList: StateFlow<List<Song>> = _currentSongList
+
+    private val _currentSongIndex = MutableStateFlow<Int?>(null)
+    val currentSongIndex: StateFlow<Int?> = _currentSongIndex
+
+    private val _isPlaying = MutableStateFlow(false)
+    val playStatus: StateFlow<Boolean> = _isPlaying
+
+    // Update current song
+    fun sendSong(song: Song) {
         _currentSong.value = song
     }
-    fun sendSongList(songList: List<Song>){
-        _currentSongList.addAll(songList)
+
+    // Update song list
+    fun sendSongList(songList: List<Song>) {
+        _currentSongList.value = songList
     }
-    fun getCurrentIndex(index: Int){
-        currentSongIndex.value = index
+
+    // Update the current song index
+    fun getCurrentIndex(index: Int) {
+        _currentSongIndex.value = index
     }
-    fun setPlayingStatus(isPlaying: Boolean){
-        playStatus.value = isPlaying
+
+    // Update play status
+    fun setPlayingStatus(isPlaying: Boolean) {
+        _isPlaying.value = isPlaying
+    }
+    fun nextSong() {
+        _currentSongIndex.value?.let { index ->
+            val newIndex = (index + 1) % _currentSongList.value.size
+            _currentSongIndex.value = newIndex
+            _currentSong.value = _currentSongList.value[newIndex]
+        }
+    }
+
+    fun previousSong() {
+        _currentSongIndex.value?.let { index ->
+            val newIndex = if (index - 1 < 0) _currentSongList.value.lastIndex else index - 1
+            _currentSongIndex.value = newIndex
+            _currentSong.value = _currentSongList.value[newIndex]
+        }
     }
 }

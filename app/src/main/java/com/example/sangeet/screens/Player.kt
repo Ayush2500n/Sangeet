@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.example.sangeet.R
 import com.example.sangeet.exoplayer.MusicService
@@ -55,21 +57,16 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?) {
-    val playingSong by remember { derivedStateOf { playerSharedViewModel.currentSongList.toList() } }
-    val index = playerSharedViewModel.currentSongIndex
-    val isPlaying = playerSharedViewModel.playStatus
-    var currentSongCover by remember { mutableStateOf<ByteArray?>(null) }
+    val index by  playerSharedViewModel.currentSongIndex.collectAsState()
+    val currentSong by playerSharedViewModel.currentSong.collectAsState()
+    val isPlaying by playerSharedViewModel.playStatus.collectAsState()
 
-    LaunchedEffect(index.value) {
-        currentSongCover = index.value?.let { playingSong.getOrNull(it)?.coverUrl }
-        Log.d("Player", "Cover URL at index ${index.value} is $currentSongCover")
-    }
 
     val painter = rememberAsyncImagePainter(
         ImageRequest.Builder(LocalContext.current)
-            .data(currentSongCover)
-            .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-            .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+            .data(currentSong?.coverUrl)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCachePolicy(CachePolicy.ENABLED)
             .build()
     )
 
@@ -109,10 +106,10 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                     Spacer(modifier = Modifier.height(20.dp))
 
                     // Display the song name
-                    index.value?.let {
-                        playingSong.getOrNull(it)?.name?.let { songName ->
+                    index?.let {
+                        currentSong?.name?.let {
                             Text(
-                                text = songName,
+                                text = it,
                                 fontSize = 20.sp,
                                 color = Color.Black,
                                 fontWeight = FontWeight.SemiBold
@@ -136,10 +133,10 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                         }
                     }
 
-                    index.value?.let {
-                        playingSong.getOrNull(it)?.artists?.let { artists ->
+                    index?.let {
+                        currentSong?.artists?.let {
                             Text(
-                                text = artists,
+                                text = it,
                                 fontSize = 16.sp,
                                 color = Color.DarkGray,
                                 modifier = Modifier
@@ -163,7 +160,8 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
                         IconButton(onClick = {
-                            index.value = (index.value ?: 0) - 1
+                            playerSharedViewModel.previousSong()
+                            index?.dec()
                             service?.prev()
                         }) {
                             Icon(
@@ -173,17 +171,18 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                             )
                         }
                         IconButton(onClick = {
-                            isPlaying.value = !isPlaying.value
+                            isPlaying.not()
                             service?.play()
                         }) {
                             Icon(
-                                painter = painterResource(id = if (isPlaying.value) R.drawable.pause else R.drawable.play),
+                                painter = painterResource(id = if (isPlaying) R.drawable.pause else R.drawable.play),
                                 contentDescription = null,
                                 modifier = Modifier.size(80.dp)
                             )
                         }
                         IconButton(onClick = {
-                            index.value = (index.value ?: 0) + 1
+                            playerSharedViewModel.nextSong()
+                            index?.inc()
                             service?.next()
                         }) {
                             Icon(
