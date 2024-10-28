@@ -234,6 +234,7 @@ fun SongCard(
     var bitmapCover by remember {
         mutableStateOf<Bitmap?>(null)
     }
+    var songDuration by remember { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
     LaunchedEffect(key1 = metadata.audioUrl) {
         withContext(Dispatchers.IO){
@@ -245,13 +246,15 @@ fun SongCard(
                     // Convert ByteArray to Bitmap
                     bitmapCover = BitmapFactory.decodeByteArray(cover, 0, cover.size)
                 }
+                songDuration = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
                 metadata = song.copy(
                     name = song.name,
                     album = song.album,
                     coverUrl = cover,  // This is still ByteArray, keep it for any other processing
                     genre = song.genre,
                     subgenre = song.subgenre,
-                    artists = song.artists
+                    artists = song.artists,
+                    duration = songDuration
                 )
             } catch (e: Exception) {
                 e.message?.let { Log.d("Extraction", it) }

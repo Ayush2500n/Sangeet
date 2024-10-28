@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.dataStore
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -81,10 +82,10 @@ class MainActivity : ComponentActivity() {
             oneTapClient = Identity.getSignInClient(applicationContext)
         )
     }
-    private val maxDuration = MutableStateFlow(0f)
+    private val maxDuration = MutableLiveData(0f)
     private val currentDuration = MutableStateFlow(0f)
-    private val currentTrack = MutableStateFlow<Song>(Song(coverUrl = null))
-    private val isPlaying = MutableStateFlow<Boolean>(false)
+    private val currentTrack = MutableLiveData<Song>(Song(coverUrl = null))
+    private val isPlaying = MutableLiveData<Boolean>(false)
     private var service: MusicService? = null
     private var isBound = false
 
@@ -114,17 +115,18 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Collect the track currently playing
-                            binder.currentTrack().collectLatest { track ->
+                            binder.currentTrack().observeForever { track ->
                                 track?.let { currentTrack.value = it }
                             }
 
                             // Update duration values
                             binder.currentDuration().collectLatest { duration ->
-                                currentDuration.value = duration
+                                playerSharedViewModel._currentDuration.value = duration
                             }
-                            binder.maxDuration().collectLatest { max ->
-                                maxDuration.value = max
+                            binder.maxDuration().observeForever { max ->
+
                             }
+                            Log.d("Player", "durations of the song are: ${currentDuration.value}, ${maxDuration.value}")
                         }
                         isBound = true
                     }
@@ -139,9 +141,12 @@ class MainActivity : ComponentActivity() {
 
                 // Use LaunchedEffect to collect flows continuously
                 LaunchedEffect(key1 = playerSharedViewModel) {
-                    playerSharedViewModel.currentSong.collect { song ->
+                    playerSharedViewModel.currentSong.observeForever { song ->
                         song?.let {
-                            service?.updateTrack(it, playerSharedViewModel.currentSongList.value, playerSharedViewModel.currentSongIndex.value)
+                            playerSharedViewModel.currentSongList.value?.let { it1 ->
+                                service?.updateTrack(it,
+                                    it1, playerSharedViewModel.currentSongIndex.value)
+                            }
                         }
                     }
                 }
@@ -152,13 +157,13 @@ class MainActivity : ComponentActivity() {
                 }
                 val navController = rememberNavController()
                 var currentUser by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser) }
-                var splashVisible by remember { mutableStateOf(true) }
+                var splashVisible by remember { mutableStateOf(false) }
                 val userPreferences by userSharedViewModel.response.collectAsState(initial = false)
                 Log.d("UserCheck - MainActivity", "userPreferences: $userPreferences")
                 val splash by rememberLottieComposition(
                     spec = LottieCompositionSpec.RawRes(R.raw.sangeet_splash_screen)
                 )
-                val splashTime = splash?.duration ?: 4000
+                val splashTime = splash?.duration ?: 2000
                 LaunchedEffect(key1 = currentUser, key2 = userPreferences) {
                     if (currentUser != null) {
                         if (userPreferences == true){
@@ -290,7 +295,7 @@ class MainActivity : ComponentActivity() {
                             MoodsSelect(moodsViewModel, mood, navController, playerSharedViewModel, connection)
                         }
                         composable("Player"){
-                            Player(playerSharedViewModel, service)
+                            service?.let { it1 -> Player(playerSharedViewModel, it1) }
                         }
                     }
                 }

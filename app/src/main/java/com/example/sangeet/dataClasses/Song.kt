@@ -3,6 +3,7 @@ package com.example.sangeet.dataClasses
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
 
 @Serializable
 @Parcelize
@@ -14,5 +15,6 @@ data class Song(
     val audioUrl: String? = "No Url for audio",
     var coverUrl: ByteArray?,
     val subgenre: String?= "Unknown subgenre",
-    val artists: String? = "Unknown Artists"
+    val artists: String? = "Unknown Artists",
+    val duration: Long? = 0
 ) : Parcelable

@@ -10,11 +10,10 @@ import android.os.Build
 import android.os.IBinder
 import android.support.v4.media.session.MediaSessionCompat
 import android.util.Log
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.toMutableStateList
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.MutableLiveData
 import com.example.sangeet.R
 import com.example.sangeet.dataClasses.Song
 import com.example.sangeet.di.CHANNEL_ID
@@ -34,10 +33,10 @@ const val NEXT = "next"
 
 class MusicService: Service()  {
 
-    private val currentTrack = MutableStateFlow<Song?>(null)
-    private val currentTrackIndex = MutableStateFlow<Int?>(0)
-    private var songsList = MutableStateFlow<List<Song>>(emptyList())
-    private val maxDuration = MutableStateFlow(0f)
+    private val currentTrack = MutableLiveData<Song?>(null)
+    private val currentTrackIndex = MutableLiveData<Int?>(0)
+    private var songsList = MutableLiveData<List<Song>>(emptyList())
+    private val maxDuration = MutableLiveData(0f)
     private val currentDuration = MutableStateFlow(0f)
     private val scope = CoroutineScope(Dispatchers.Main)
     private var job: Job? = null
@@ -80,10 +79,15 @@ class MusicService: Service()  {
                 NEXT -> next()
                 else -> {
                     scope.launch {
-                        songsList.collectLatest { songs ->
+                        songsList.observeForever { songs ->
                             if (songs.isNotEmpty()) {
-                                currentTrack.update { songsList.value[currentTrackIndex.value ?: 0] }
-                                playSong(currentTrack.value ?: return@collectLatest)
+                                currentTrack.value = currentTrackIndex.value?.let { it1 ->
+                                    songsList.value?.get(
+                                        it1
+                                    )
+                                }
+                                playSong(currentTrack.value ?: return@observeForever)
+                                updateDurations()
                             } else {
                                 Log.e("MusicPlayer", "songsList is empty; delaying playback")
                             }
@@ -97,12 +101,12 @@ class MusicService: Service()  {
 
 
     fun updateDurations(){
-        scope.launch {
+        job = scope.launch {
             if (mediaPlayer.isPlaying.not()) return@launch
-            maxDuration.update { mediaPlayer.duration.toFloat() }
+            maxDuration.value = mediaPlayer.duration.toFloat()
             while (true){
                 currentDuration.update { mediaPlayer.currentPosition.toFloat() }
-                delay(1000)
+                delay(2000)
             }
         }
     }
@@ -111,35 +115,45 @@ class MusicService: Service()  {
         job?.cancel()
         mediaPlayer.reset()
         mediaPlayer = MediaPlayer()
-        val index = songsList.value.indexOf(currentTrack.value)
-        val prevIndex = if (index < 0) songsList.value.size - 1 else index - 1
-        val prevSong = songsList.value[prevIndex]
-        currentTrack.update { prevSong }
-        prevSong.audioUrl?.toUri()?.let { mediaPlayer.setDataSource(this, it) }
+        val index = songsList.value?.indexOf(currentTrack.value)
+        val prevIndex = if (index!! < 0) (songsList.value?.size ?: 0) - 1 else index - 1
+        val prevSong = songsList.value?.get(prevIndex)
+        currentTrack.value = prevSong
+        if (prevSong != null) {
+            prevSong.audioUrl?.toUri()?.let { mediaPlayer.setDataSource(this, it) }
+        }
         mediaPlayer.prepareAsync()
         mediaPlayer.setOnPreparedListener {
             mediaPlayer.start()
-            sendNotification(prevSong)
+            if (prevSong != null) {
+                sendNotification(prevSong)
+            }
             updateDurations()
         }
     }
+
 
     fun next(){
         job?.cancel()
         mediaPlayer.reset()
         mediaPlayer = MediaPlayer()
-        val index = songsList.value.indexOf(currentTrack.value)
-        val nextIndex = (index + 1) % songsList.value.size
-        val nextSong = songsList.value[nextIndex]
-        currentTrack.update { nextSong }
-        nextSong.audioUrl?.let { mediaPlayer.setDataSource(this, it.toUri()) }
+        val index = songsList.value?.indexOf(currentTrack.value)
+        val nextIndex = (index?.inc())?.rem((songsList.value?.size ?: 0))
+        val nextSong = nextIndex?.let { songsList.value?.get(it) }
+        currentTrack.value = nextSong
+        if (nextSong != null) {
+            nextSong.audioUrl?.let { mediaPlayer.setDataSource(this, it.toUri()) }
+        }
         mediaPlayer.prepareAsync()
         mediaPlayer.setOnPreparedListener {
             mediaPlayer.start()
-            sendNotification(nextSong)
+            if (nextSong != null) {
+                sendNotification(nextSong)
+            }
             updateDurations()
         }
     }
+
 
     fun play(){
         if (mediaPlayer.isPlaying){
@@ -159,6 +173,7 @@ class MusicService: Service()  {
             updateDurations()
         }
     }
+
 
     private fun sendNotification(song: Song){
         isPlaying.update { mediaPlayer.isPlaying }
@@ -195,5 +210,12 @@ class MusicService: Service()  {
     fun createNextPendingIntent(): PendingIntent {
         val intent = Intent(this, MusicService::class.java).apply { action = NEXT }
         return PendingIntent.getService(this, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    fun seekTo(position: Int) {
+        if (position in 0..mediaPlayer.duration) {
+            mediaPlayer.seekTo(position.toInt())
+            currentDuration.update { mediaPlayer.currentPosition.toFloat() }
+        }
     }
 }

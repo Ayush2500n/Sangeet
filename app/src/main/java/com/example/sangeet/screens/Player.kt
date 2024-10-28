@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,18 +24,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -45,7 +48,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -53,22 +55,36 @@ import com.example.sangeet.R
 import com.example.sangeet.exoplayer.MusicService
 import com.example.sangeet.viewModels.PlayerSharedViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 
 @Composable
-fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?) {
-    val index by  playerSharedViewModel.currentSongIndex.collectAsState()
-    val currentSong by playerSharedViewModel.currentSong.collectAsState()
-    val isPlaying by playerSharedViewModel.playStatus.collectAsState()
-
-
+fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService) {
+    val index by  playerSharedViewModel.currentSongIndex.observeAsState()
+    val currentSong by playerSharedViewModel.currentSong.observeAsState()
+    playerSharedViewModel.observeDurationUpdates(service)
+    val isPlaying by playerSharedViewModel.playStatus.observeAsState()
+    val currentDuration by playerSharedViewModel._currentDuration.collectAsState()
+    val maxDuration by remember {
+        mutableStateOf(playerSharedViewModel.maxDuration)
+    }
+    Log.d("Player", "durations collected are $currentDuration and $maxDuration")
     val painter = rememberAsyncImagePainter(
         ImageRequest.Builder(LocalContext.current)
-            .data(currentSong?.coverUrl)
+            .data(currentSong?.let { playerSharedViewModel.extractCover(it) })
             .diskCachePolicy(CachePolicy.ENABLED)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .build()
     )
+    fun formatDuration(durationMs: Float): String {
+        val totalSeconds = (durationMs / 1000).toInt()
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+    val formattedCurrentDuration = remember(currentDuration) {
+        currentDuration?.let { formatDuration(it) }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
@@ -76,7 +92,9 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .blur(24.dp),
+                .blur(24.dp)
+                .background(color = Color.Black)
+                .alpha(0.5f),
             contentScale = ContentScale.Crop
         )
         Column(
@@ -99,7 +117,9 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                         modifier = Modifier
                             .padding(start = 60.dp, end = 60.dp, top = 60.dp)
                             .aspectRatio(1f)
-                            .clip(shape = RoundedCornerShape(20.dp)),
+                            .clip(shape = RoundedCornerShape(20.dp))
+                            .background(color = Color.Black)
+                            .alpha(0.9f),
                         contentScale = ContentScale.Crop
                     )
 
@@ -112,7 +132,8 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                                 text = it,
                                 fontSize = 20.sp,
                                 color = Color.Black,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
                             )
                         }
                     }
@@ -152,11 +173,66 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
 
                     Spacer(modifier = Modifier.height(120.dp))
 
-                    // Playback controls
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 60.dp, end = 60.dp),
+                            .padding(horizontal = 60.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        // Display the current duration
+                        if (formattedCurrentDuration != null) {
+                            Text(
+                                text = formattedCurrentDuration,
+                                fontSize = 20.sp,
+                                color = Color.Black
+                            )
+                        }
+
+                        // Slider for seeking within the track
+                        var sliderValue by remember { mutableStateOf(currentDuration) }
+                        LaunchedEffect(currentDuration) {
+                            sliderValue = currentDuration
+                        }
+
+                        LaunchedEffect(currentDuration) {
+                            sliderValue = currentDuration
+                        }
+                        // Slider UI
+                        sliderValue?.let {
+                            Slider(
+                                value = it,
+                                onValueChange = { newValue ->
+                                    sliderValue = newValue
+                                },
+                                onValueChangeFinished = {
+                                    // Seek to new position when user releases the slider
+                                    service.seekTo(sliderValue!!.toInt())
+                                    if (isPlaying == true) {
+                                        service.play()
+                                    }
+                                },
+                                valueRange = 0f..(maxDuration.value ?: 0f), // Ensures a non-null range
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        // Display the max duration
+                        maxDuration.value?.let { formatDuration(it) }?.toString()?.let {
+                            Text(
+                                text = it,
+                                fontSize = 20.sp,
+                                color = Color.Black
+                            )
+                        }
+                    }
+
+
+                    // Playback controls
+                    Row( verticalAlignment = Alignment.Bottom,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 60.dp),
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
                         IconButton(onClick = {
@@ -171,11 +247,11 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                             )
                         }
                         IconButton(onClick = {
-                            isPlaying.not()
+                            isPlaying?.not()
                             service?.play()
                         }) {
                             Icon(
-                                painter = painterResource(id = if (isPlaying) R.drawable.pause else R.drawable.play),
+                                painter = painterResource(id = if (isPlaying == true) R.drawable.pause else R.drawable.play),
                                 contentDescription = null,
                                 modifier = Modifier.size(80.dp)
                             )
@@ -183,7 +259,8 @@ fun Player(playerSharedViewModel: PlayerSharedViewModel, service: MusicService?)
                         IconButton(onClick = {
                             playerSharedViewModel.nextSong()
                             index?.inc()
-                            service?.next()
+                            service.next()
+                            Log.d("Player", "Next button clicked, now the cover is ${currentSong?.coverUrl}")
                         }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.next),
